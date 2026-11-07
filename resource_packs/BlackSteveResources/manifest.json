@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Black Steve Resources",
+    "description": "Black Steve hunter model resources",
+    "uuid": "db2c2d8f-9f30-4c0c-9a1d-11ab0f50c601",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 50]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "4a0cbf8b-15b9-4a7c-8a20-3a2d8a9f7702",
+      "version": [1, 0, 0]
+    }
+  ]
+}
