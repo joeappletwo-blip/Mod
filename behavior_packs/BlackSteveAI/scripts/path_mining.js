@@ -33,6 +33,7 @@ const AIR = new Set([
   "minecraft:large_fern", "minecraft:deadbush", "minecraft:snow_layer"
 ]);
 const LIQUID = id => id.includes("water") || id.includes("lava");
+const HAZARD = new Set(["minecraft:cactus","minecraft:magma","minecraft:campfire","minecraft:soul_campfire","minecraft:fire","minecraft:soul_fire","minecraft:sweet_berry_bush","minecraft:powder_snow"]);
 const posKey = p => `${p.x},${p.y},${p.z}`;
 const heuristic = (a, b) => Math.abs(a.x-b.x) + Math.abs(a.y-b.y)*1.4 + Math.abs(a.z-b.z);
 
@@ -49,7 +50,7 @@ function blockCost(block) {
   return cost === undefined ? Infinity : cost;
 }
 function isSafeSupport(block) {
-  if (!block || AIR.has(block.typeId) || LIQUID(block.typeId)) return false;
+  if (!block || AIR.has(block.typeId) || LIQUID(block.typeId) || HAZARD.has(block.typeId)) return false;
   return true;
 }
 function nodeInfo(dimension, feetPos) {
@@ -84,8 +85,8 @@ export function planMiningRoute(dimension, startLocation, targetLocation) {
 
     for (let dx=-1;dx<=1;dx++) for (let dz=-1;dz<=1;dz++) {
       if (dx===0 && dz===0) continue;
+      if (dx!==0 && dz!==0) continue; // cardinal grid keeps the Manhattan A* heuristic admissible
       for (let dy=-1;dy<=1;dy++) {
-        if (Math.abs(dy)===1 && dx!==0 && dz!==0) continue;
         const next = {x:current.p.x+dx,y:current.p.y+dy,z:current.p.z+dz};
         if (Math.abs(next.x-start.x)>MAX_RADIUS || Math.abs(next.z-start.z)>MAX_RADIUS ||
             Math.abs(next.y-start.y)>MAX_VERTICAL) continue;
