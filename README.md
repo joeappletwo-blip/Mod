@@ -7,7 +7,7 @@
 - Faster movement (0.42 base movement; 1.6 melee speed multiplier)
 - Targets players within 512 blocks
 - Automatically attempts to spawn once when a player first joins, approximately 400 blocks away
-- Registers a named 5×5-chunk ticking area (`bs_hunt`) at the spawn destination before spawning
+- Registers a named radius-2 circular ticking area (`bs_hunt`) at the spawn destination before spawning
 - Bounded A* route planner with continuous mining: every block except bedrock is eligible
 
 ## Install
