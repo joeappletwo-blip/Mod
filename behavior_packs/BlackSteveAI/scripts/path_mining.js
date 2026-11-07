@@ -41,13 +41,11 @@ function getBlock(dimension, p) {
   try { return dimension.getBlock(p); } catch { return undefined; }
 }
 function blockCost(block) {
-  if (!block) return Infinity; // unloaded/unknown: don't route through it
+  if (!block) return Infinity; // unloaded/unknown: do not route through it
   if (AIR.has(block.typeId)) return 0;
-  if (LIQUID(block.typeId)) return Infinity;
-  // Never mine containers, block entities, ores, redstone, utility blocks or unknown blocks.
-  if (block.getComponent?.("minecraft:inventory")) return Infinity;
-  const cost = MINE_COST.get(block.typeId);
-  return cost === undefined ? Infinity : cost;
+  if (block.typeId === "minecraft:bedrock") return Infinity;
+  // Every other block is mineable, including containers and player-placed blocks.
+  return 1;
 }
 function isSafeSupport(block) {
   if (!block || AIR.has(block.typeId) || LIQUID(block.typeId) || HAZARD.has(block.typeId)) return false;
@@ -114,15 +112,14 @@ export function planMiningRoute(dimension, startLocation, targetLocation) {
   return {status:"route",visited,steps,firstBlocker,cost:gScore.get(posKey(reached))};
 }
 
-// Actual clearing is opt-in per mob via /tag <entity> add blacksteve:allow_mining.
-// Even with opt-in, only the allowlisted blocks above can be removed.
-// Bedrock does not expose a universal player-placed-block provenance flag.
+// Every block except bedrock can be cleared; this is intentionally destructive.
 export function clearPlannedBlock(dimension, mob, blocker) {
-  if (!mob.hasTag("blacksteve:allow_mining")) return {status:"disabled"};
-  if (!blocker || !MINE_COST.has(blocker.typeId)) return {status:"rejected"};
+  if (!blocker || blocker.typeId === "minecraft:bedrock" || AIR.has(blocker.typeId)) {
+    return {status:"rejected"};
+  }
   const block = getBlock(dimension, blocker);
   if (!block || block.typeId !== blocker.typeId) return {status:"changed-or-unloaded"};
-  if (block.getComponent?.("minecraft:inventory")) return {status:"protected-container"};
+  if (block.typeId === "minecraft:bedrock") return {status:"protected-bedrock"};
   try {
     block.setType("minecraft:air");
     return {status:"cleared",typeId:blocker.typeId};
