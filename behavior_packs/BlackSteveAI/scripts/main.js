@@ -1,4 +1,5 @@
 import { world, system, ItemStack, EquipmentSlot } from "@minecraft/server";
+import { planMiningRoute, clearPlannedBlock } from "./path_mining.js";
 
 const ID = "blacksteve:stalker";
 const MAX_HP = 120;
@@ -161,11 +162,13 @@ system.runInterval(() => {
     const mobs = safeCall(() => dimension.getEntities({ type: ID })) ?? [];
     for (const mob of mobs) {
       if (!state.has(mob.id)) state.set(mob.id, {
-        pearlCooldown: 0, stuckTicks: 0,
+        pearlCooldown: 0, stuckTicks: 0, routeTicks: 0, miningCooldown: 0, routeStatus: "idle",
         previous: { ...mob.location }, lastAction: "native-nav"
       });
       const brain = state.get(mob.id);
       brain.pearlCooldown = Math.max(0, brain.pearlCooldown - TICK_RATE);
+      brain.miningCooldown = Math.max(0, brain.miningCooldown - TICK_RATE);
+      brain.routeTicks -= TICK_RATE;
       maintainEffects(mob);
       equip(mob);
 
@@ -178,6 +181,37 @@ system.runInterval(() => {
       }
 
       const distance = Math.sqrt(dist2(mob.location, target.location));
+
+      // Re-plan a short local segment so distant targets do not exceed the A* search bounds.
+      // Native Bedrock navigation still moves the mob; this module selects safe tunnel blocks
+      // that obstruct a low-cost supported route and clears at most one per cooldown.
+      if (brain.routeTicks <= 0) {
+        const dx = target.location.x - mob.location.x;
+        const dz = target.location.z - mob.location.z;
+        const horizontal = Math.max(1, Math.sqrt(dx*dx + dz*dz));
+        const segment = Math.min(12, horizontal);
+        const routeGoal = {
+          x: mob.location.x + dx / horizontal * segment,
+          y: mob.location.y + clamp(target.location.y - mob.location.y, -3, 3),
+          z: mob.location.z + dz / horizontal * segment
+        };
+        const route = safeCall(() => planMiningRoute(mob.dimension, mob.location, routeGoal));
+        brain.routeStatus = route?.status ?? "planner-error";
+        brain.routeCost = route?.cost ?? null;
+        brain.routeVisited = route?.visited ?? 0;
+        if (route?.status === "route" && route.firstBlocker && brain.miningCooldown <= 0) {
+          const cleared = safeCall(() => clearPlannedBlock(mob.dimension, mob, route.firstBlocker));
+          brain.lastAction = cleared?.status === "cleared"
+            ? "path-block-cleared:" + cleared.typeId
+            : "path-block-" + (cleared?.status ?? "error");
+          if (cleared?.status === "cleared") brain.miningCooldown = 20;
+        } else if (route?.status === "route") {
+          brain.lastAction = mob.hasTag("blacksteve:allow_mining")
+            ? "route-clear" : "route-planned-mining-disabled";
+        }
+        brain.routeTicks = 20;
+      }
+
       const moved = dist2(mob.location, brain.previous);
       brain.stuckTicks = moved < 0.08 && distance > 4 ? brain.stuckTicks + TICK_RATE : 0;
       brain.previous = { ...mob.location };
@@ -191,7 +225,7 @@ system.runInterval(() => {
       if (DEBUG.size) {
         for (const p of dimension.getPlayers()) {
           if (DEBUG.has(p.id) && dist2(p.location, mob.location) < 64 * 64) {
-            p.sendMessage(`§7[Black Steve] distance=${distance.toFixed(1)} action=${brain.lastAction} stuck=${brain.stuckTicks}`);
+            p.sendMessage(`§7[Black Steve] distance=${distance.toFixed(1)} route=${brain.routeStatus} cost=${brain.routeCost ?? "-"} visited=${brain.routeVisited ?? 0} action=${brain.lastAction} stuck=${brain.stuckTicks}`);
           }
         }
       }
