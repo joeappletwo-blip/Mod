@@ -171,7 +171,7 @@ world.afterEvents.scriptEventReceive.subscribe((event) => {
 world.afterEvents.playerSpawn.subscribe((event) => {
   if (!event.initialSpawn) return;
   const player = event.player;
-  const existing = safeCall(() => player.dimension.getEntities({ type: ID, location: player.location, maxDistance: 100000 }));
+  const existing = safeCall(() => player.dimension.getEntities({ type: ID }));
   if (existing?.length) return;
   spawnAtDistance(player);
 });
