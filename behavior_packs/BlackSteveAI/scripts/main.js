@@ -112,25 +112,47 @@ function tryPearlReposition(entity, target, brain) {
   brain.lastAction = "simulated-pearl-teleport";
   return true;
 }
+function registerHunterArea(dimension, x, y, z) {
+  // One named area is reused so repeated joins do not consume the world's ticking-area quota.
+  safeCall(() => dimension.runCommand("tickingarea remove bs_hunt"));
+  const command = `tickingarea add circle ${Math.floor(x)} ${Math.floor(y)} ${Math.floor(z)} 2 bs_hunt`;
+  const result = safeCall(() => dimension.runCommand(command));
+  return result !== undefined;
+}
 function spawnAtDistance(player) {
   const angle = Math.random() * Math.PI * 2;
   const x = player.location.x + Math.cos(angle) * 400;
   const z = player.location.z + Math.sin(angle) * 400;
-  const pos = safeLanding(player.dimension, x, z, player.location.y);
-  if (!pos) {
-    player.sendMessage("§cBlack Steve: destination at ~400 blocks is not currently loaded or has no safe landing. Load that area first, then retry.");
+  const y = player.location.y;
+  if (!registerHunterArea(player.dimension, x, y, z)) {
+    player.sendMessage("§cBlack Steve: could not register a ticking area. Enable cheats and check the world's ticking-area limit.");
     return;
   }
-  const mob = safeCall(() => player.dimension.spawnEntity(ID, pos));
-  if (!mob) {
-    player.sendMessage("§cBlack Steve: spawn failed. The destination chunk must be loaded and the location must be valid.");
-    return;
-  }
-  equip(mob);
-  maintainEffects(mob);
-  player.sendMessage("§8Black Steve spawned approximately 400 horizontal blocks away.");
-}
 
+  // Give Bedrock time to load the newly registered area before querying blocks or spawning.
+  let attempts = 0;
+  const trySpawn = () => {
+    attempts++;
+    const pos = safeLanding(player.dimension, x, z, y);
+    if (!pos) {
+      if (attempts < 12) {
+        system.runTimeout(trySpawn, 20);
+      } else {
+        player.sendMessage("§cBlack Steve: the registered area did not produce a safe landing location.");
+      }
+      return;
+    }
+    const mob = safeCall(() => player.dimension.spawnEntity(ID, pos));
+    if (!mob) {
+      player.sendMessage("§cBlack Steve: spawn failed inside the registered ticking area.");
+      return;
+    }
+    equip(mob);
+    maintainEffects(mob);
+    player.sendMessage("§8Black Steve spawned approximately 400 blocks away. Its 5×5-chunk ticking area is registered as bs_hunt.");
+  };
+  system.runTimeout(trySpawn, 40);
+}
 world.afterEvents.scriptEventReceive.subscribe((event) => {
   if (event.id === "blacksteve:spawn") {
     const player = event.sourceEntity;
@@ -143,6 +165,15 @@ world.afterEvents.scriptEventReceive.subscribe((event) => {
       player.sendMessage("Black Steve AI debug: " + (DEBUG.has(player.id) ? "ON" : "OFF"));
     }
   }
+});
+
+// Spawn one hunter automatically when a player first enters the world.
+world.afterEvents.playerSpawn.subscribe((event) => {
+  if (!event.initialSpawn) return;
+  const player = event.player;
+  const existing = safeCall(() => player.dimension.getEntities({ type: ID, location: player.location, maxDistance: 100000 }));
+  if (existing?.length) return;
+  spawnAtDistance(player);
 });
 
 // Heal only when the after-event confirms that Black Steve actually damaged a target.
@@ -206,8 +237,7 @@ system.runInterval(() => {
             : "path-block-" + (cleared?.status ?? "error");
           if (cleared?.status === "cleared") brain.miningCooldown = 20;
         } else if (route?.status === "route") {
-          brain.lastAction = mob.hasTag("blacksteve:allow_mining")
-            ? "route-clear" : "route-planned-mining-disabled";
+          brain.lastAction = "route-clear";
         }
         brain.routeTicks = 20;
       }
