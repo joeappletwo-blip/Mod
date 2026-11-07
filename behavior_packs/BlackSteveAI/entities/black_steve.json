@@ -25,6 +25,15 @@
       "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
       "minecraft:follow_range": { "value": 512 },
       "minecraft:attack": { "damage": 9 },
+      "minecraft:equippable": {
+        "slots": [
+          {
+            "slot": 0,
+            "item": "minecraft:netherite_sword",
+            "accepted_items": ["minecraft:netherite_sword"]
+          }
+        ]
+      },
       "minecraft:loot": { "table": "loot_tables/empty.json" },
       "minecraft:behavior.float": { "priority": 0 },
       "minecraft:behavior.nearest_attackable_target": {
@@ -48,11 +57,6 @@
       "minecraft:behavior.look_at_player": { "priority": 9, "look_distance": 64, "probability": 1.0 },
       "minecraft:behavior.random_look_around": { "priority": 10 },
       "minecraft:despawn": { "despawn_from_distance": false }
-    },
-    "events": {
-      "minecraft:entity_spawned": {
-        "add": { "component_groups": [] }
-      }
     }
   }
 }
