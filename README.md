@@ -11,6 +11,7 @@ A scripted hostile humanoid add-on prototype targeting Bedrock 1.26.50.
 - Native Bedrock target acquisition and melee navigation
 - +1 HP (half a heart) after confirmed damage; +8 HP (four hearts) after a confirmed kill
 - A simulated pearl-like teleport for recovery from a stuck state, with safe-landing checks
+- A bounded A* local route planner that scores candidate tunnel blocks and shares its route result with the mining controller
 
 ## Install and spawn
 
@@ -28,9 +29,13 @@ Movement and melee combat are delegated to Bedrock's native target and navigatio
 
 The simulated pearl action is a checked teleport, not a real thrown Ender Pearl projectile. It only starts its cooldown if `tryTeleport` confirms success.
 
-## Deliberate safety restrictions
+## Route planning and mining
 
-Automatic block destruction is disabled in this audited revision. Bedrock's ordinary block query does not tell this script whether a dirt, sand, gravel, wool, or stone block was player-placed. Destroying such blocks could grief builds. A future mining planner must use a protection strategy before it is enabled.
+`scripts/path_mining.js` contains a bounded A* planner. It evaluates supported walking positions, checks both feet and head clearance, rejects unloaded areas and hazards, and scores a fixed allowlist of blocks by estimated mining effort. The controller in `scripts/main.js` replans a short segment toward the nearest player every 20 ticks and asks the mining module to clear the first approved obstruction. The planner is local (18-block search radius, 5-block vertical window, 900-node cap), not a global world solver.
+
+Mining is **opt-in per mob**. To enable it for one spawned hunter in a test world, target that entity and run `/tag @e[type=blacksteve:stalker,c=1] add blacksteve:allow_mining`. Without this tag, it computes and reports a route but does not alter blocks. Remove the tag to disable mining: `/tag @e[type=blacksteve:stalker,c=1] remove blacksteve:allow_mining`.
+
+The allowlist includes common stone, dirt, gravel, sand, netherrack, and common plank blocks. Ores, containers, redstone/utility blocks, fluids, hazards, and unknown block types are not mined. The script cannot universally distinguish player-placed blocks from natural blocks, so even this allowlist can damage builds. Enable the tag only in a disposable world or a cleared mining test area. Clearing is instant block removal (no mining animation or drops), not tool-based mining.
 
 ## Known unfinished assets and validation
 
