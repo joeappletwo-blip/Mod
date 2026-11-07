@@ -1,40 +1,43 @@
 # Black Steve AI — Minecraft Bedrock 1.26.50
 
-A behavior-pack prototype for a hostile Black Steve-style hunter. Target: **Minecraft Bedrock 1.26.50**.
+A scripted hostile humanoid add-on prototype targeting Bedrock 1.26.50.
 
-## Features
+## Implemented
 
-- Custom entity identifier: `blacksteve:stalker`
+- Entity identifier: `blacksteve:stalker`
 - 120 health points (60 hearts)
-- Resistance V and Regeneration II refreshed by the script
-- +8 HP healing when it deals a killing blow; +1 HP after a successful hit
-- Netherite sword equipped in its main hand
-- Target acquisition, pursuit steering, line-of-sight checks, stuck recovery, jump decisions, and terrain-aware route scoring
-- A conservative simulated ender-pearl reposition when a safe landing point can be found
-- Limited block clearing for soft, non-valuable obstructions
+- Resistance V and Regeneration II continuously refreshed
+- Netherite sword equipment slot configured in the entity definition
+- Native Bedrock target acquisition and melee navigation
+- +1 HP (half a heart) after confirmed damage; +8 HP (four hearts) after a confirmed kill
+- A simulated pearl-like teleport for recovery from a stuck state, with safe-landing checks
 
-This is a scripted game-AI system, not a trained machine-learning model. Its "reasoning" is an explicit utility/decision layer. Bedrock does not expose arbitrary access to every block or unrestricted player inventory, and this pack does not claim otherwise.
+## Install and spawn
 
-## Install
+1. Import and activate both packs in a test world.
+2. Enable script support if required by your Bedrock installation.
+3. Run `/scriptevent blacksteve:spawn` as a player.
 
-1. Enable cheats and **Beta APIs / Script APIs** if your Bedrock build requires them for script modules.
-2. Import both packs from the `behavior_packs` and `resource_packs` folders into your world.
-3. Activate both packs in world settings.
-4. Run `/scriptevent blacksteve:spawn` to spawn the hunter 400 blocks from the nearest player.
-5. Or use `/summon blacksteve:stalker` to spawn the entity at the command position (this bypasses the 400-block spawn routine).
+**400-block spawn limitation:** Bedrock scripts can only spawn entities in loaded chunks. The command checks for a safe landing point and reports failure when the destination area is not loaded. It does not force-load distant chunks.
 
-## Controls
+You can also run `/summon blacksteve:stalker` to summon at your current command location.
 
-- `/scriptevent blacksteve:spawn` — spawn 400 blocks from the nearest player.
-- `/scriptevent blacksteve:debug` — toggle decision diagnostics in chat.
+## AI design
 
-## Compatibility notes
+Movement and melee combat are delegated to Bedrock's native target and navigation goals. The script deliberately does not apply a competing impulse-based movement controller or a second damage loop. This avoids two independent controllers fighting over movement and avoids double damage.
 
-The pack uses the stable `@minecraft/server` 2.10.0 module documented for Bedrock 1.26.50. Entity JSON uses format version 1.26.50. API behavior can vary by platform/build; validate in a disposable world before using it in a primary world.
+The simulated pearl action is a checked teleport, not a real thrown Ender Pearl projectile. It only starts its cooldown if `tryTeleport` confirms success.
 
-## Limitations
+## Deliberate safety restrictions
 
-- The pursuit controller uses steering and local terrain scoring; it is not a full navmesh or global optimal path solver.
-- Pearl movement is implemented as a scripted safe reposition, not a vanilla thrown ender-pearl projectile.
-- Mining is intentionally constrained to soft blocks and will not tunnel through liquids, lava, bedrock, containers, ores, or arbitrary structures.
-- A custom geometry is included; the texture path is a replaceable resource-pack asset and may need a skin PNG added for the exact desired Black Steve appearance.
+Automatic block destruction is disabled in this audited revision. Bedrock's ordinary block query does not tell this script whether a dirt, sand, gravel, wool, or stone block was player-placed. Destroying such blocks could grief builds. A future mining planner must use a protection strategy before it is enabled.
+
+## Known unfinished assets and validation
+
+- Add a 64x64 skin PNG at `resource_packs/BlackSteveResources/textures/entity/black_steve.png`.
+- The entity JSON, scripts, and resource pack still require an in-game test on the exact Bedrock 1.26.50 build.
+- A real Ender Pearl projectile/throwing mechanic is not implemented.
+- The navigation is Bedrock's built-in mob pathfinding, not a custom global route optimizer.
+- No machine-learning model is included; tactical behavior is deterministic game logic.
+
+Use a disposable test world first.
