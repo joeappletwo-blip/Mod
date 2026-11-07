@@ -1,48 +1,29 @@
 # Black Steve AI — Minecraft Bedrock 1.26.50
 
-A scripted hostile humanoid add-on prototype targeting Bedrock 1.26.50.
+## Features
+- Black Steve entity: `blacksteve:stalker`, 120 HP (60 hearts)
+- Resistance V and Regeneration II, continuously refreshed
+- Netherite sword, healing on confirmed hits and kills
+- Faster movement (0.42 base movement; 1.6 melee speed multiplier)
+- Targets players within 512 blocks
+- Automatically attempts to spawn once when a player first joins, approximately 400 blocks away
+- Registers a named 5×5-chunk ticking area (`bs_hunt`) at the spawn destination before spawning
+- Bounded A* route planner with continuous mining: every block except bedrock is eligible
 
-## Implemented
+## Install
+1. Import and activate both the behavior pack and resource pack.
+2. Enable cheats; the automatic distant spawn uses the Bedrock `tickingarea` command.
+3. Join the world. On initial player spawn, Black Steve registers its ticking area and attempts to spawn after the chunks load.
+4. Manual spawn remains available with `/scriptevent blacksteve:spawn`. Direct summon: `/summon blacksteve:stalker`.
 
-- Entity identifier: `blacksteve:stalker`
-- 120 health points (60 hearts)
-- Resistance V and Regeneration II continuously refreshed
-- Netherite sword equipment slot configured in the entity definition
-- Native Bedrock target acquisition and melee navigation
-- +1 HP (half a heart) after confirmed damage; +8 HP (four hearts) after a confirmed kill
-- A simulated pearl-like teleport for recovery from a stuck state, with safe-landing checks
-- A bounded A* local route planner that scores candidate tunnel blocks and shares its route result with the mining controller
+## Important Bedrock limits and destructive behavior
+- Ticking areas are bounded by Bedrock's world limits and the world's ticking-area quota. This add-on reuses the single named area `bs_hunt`; it does not create an unlimited chunk loader.
+- The spawn routine retries safe-landing checks while the destination loads. If the command is denied or the ticking-area quota is exhausted, spawning fails with a chat message.
+- Mining is always enabled. Black Steve can remove any block except bedrock, including containers, ores, redstone, fluids, and player-built blocks. Clearing is instant block replacement with air; it does not produce drops or use a mining animation. Container contents/builds can be destroyed. Test in a disposable world and keep backups.
+- The A* planner is local and bounded (18-block horizontal radius, 5-block vertical window, 900-node cap). Bedrock's native navigation still controls movement; the planner clears a nearby obstruction rather than directly steering the mob.
+- No in-game testing has been performed. Validate on the exact Bedrock 1.26.50 build.
 
-## Install and spawn
-
-1. Import and activate both packs in a test world.
-2. Enable script support if required by your Bedrock installation.
-3. Run `/scriptevent blacksteve:spawn` as a player.
-
-**400-block spawn limitation:** Bedrock scripts can only spawn entities in loaded chunks. The command checks for a safe landing point and reports failure when the destination area is not loaded. It does not force-load distant chunks.
-
-You can also run `/summon blacksteve:stalker` to summon at your current command location.
-
-## AI design
-
-Movement and melee combat are delegated to Bedrock's native target and navigation goals. The script deliberately does not apply a competing impulse-based movement controller or a second damage loop. This avoids two independent controllers fighting over movement and avoids double damage.
-
-The simulated pearl action is a checked teleport, not a real thrown Ender Pearl projectile. It only starts its cooldown if `tryTeleport` confirms success.
-
-## Route planning and mining
-
-`scripts/path_mining.js` contains a bounded A* planner. It evaluates supported walking positions, checks both feet and head clearance, rejects unloaded areas and hazards, and scores a fixed allowlist of blocks by estimated mining effort. The controller in `scripts/main.js` replans a short segment toward the nearest player every 20 ticks and asks the mining module to clear the first approved obstruction. The planner is local (18-block search radius, 5-block vertical window, 900-node cap), not a global world solver.
-
-Mining is **opt-in per mob**. To enable it for one spawned hunter in a test world, target that entity and run `/tag @e[type=blacksteve:stalker,c=1] add blacksteve:allow_mining`. Without this tag, it computes and reports a route but does not alter blocks. Remove the tag to disable mining: `/tag @e[type=blacksteve:stalker,c=1] remove blacksteve:allow_mining`.
-
-The allowlist includes common stone, dirt, gravel, sand, netherrack, and common plank blocks. Ores, containers, redstone/utility blocks, fluids, hazards, and unknown block types are not mined. The script cannot universally distinguish player-placed blocks from natural blocks, so even this allowlist can damage builds. Enable the tag only in a disposable world or a cleared mining test area. Clearing is instant block removal (no mining animation or drops), not tool-based mining.
-
-## Known unfinished assets and validation
-
-- Add a 64x64 skin PNG at `resource_packs/BlackSteveResources/textures/entity/black_steve.png`.
-- The entity JSON, scripts, and resource pack still require an in-game test on the exact Bedrock 1.26.50 build.
-- A real Ender Pearl projectile/throwing mechanic is not implemented.
-- The navigation is Bedrock's built-in mob pathfinding, not a custom global route optimizer.
-- No machine-learning model is included; tactical behavior is deterministic game logic.
-
-Use a disposable test world first.
+## Commands
+- `/scriptevent blacksteve:spawn` — register area and spawn about 400 blocks away
+- `/scriptevent blacksteve:debug` — toggle nearby debug output
+- `/summon blacksteve:stalker` — summon at command location
